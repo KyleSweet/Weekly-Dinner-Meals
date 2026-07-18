@@ -31,12 +31,12 @@
             display: grid;
             grid-template-columns: 1fr;
             gap: 20px;
-            max-width: 1000px;
+            max-width: 1100px;
             width: 100%;
         }
 
         @media (min-width: 768px) {
-            .container { grid-template-columns: 2fr 1fr; }
+            .container { grid-template-columns: 1.2fr 1.3fr 1fr; }
         }
 
         .card {
@@ -45,6 +45,8 @@
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
         }
 
         /* Week Planner Styles */
@@ -52,11 +54,11 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 0;
+            padding: 12px 0;
             border-bottom: 1px solid var(--border);
         }
         .day-name { font-weight: 600; width: 100px; }
-        .meal-assigned { flex-grow: 1; margin: 0 15px; color: #64748b; }
+        .meal-assigned { flex-grow: 1; margin: 0 15px; color: #64748b; font-weight: 500; }
         .eat-out-btn {
             background: #ef4444;
             color: white;
@@ -64,10 +66,9 @@
             padding: 6px 12px;
             border-radius: 6px;
             cursor: pointer;
+            font-size: 0.85rem;
         }
-        .eat-out-btn.blocked {
-            background: #94a3b8;
-        }
+        .eat-out-btn.blocked { background: #94a3b8; }
 
         /* Controls */
         .actions {
@@ -75,12 +76,13 @@
             gap: 10px;
             margin-bottom: 20px;
             width: 100%;
+            max-width: 1100px;
         }
         button.main-btn {
             background: var(--primary);
             color: white;
             border: none;
-            padding: 12px 24px;
+            padding: 14px 24px;
             font-size: 1rem;
             border-radius: 8px;
             cursor: pointer;
@@ -88,6 +90,40 @@
             flex-grow: 1;
         }
         button.main-btn:hover { background: var(--primary-hover); }
+        button:disabled { opacity: 0.5; cursor: not-allowed !important; }
+
+        /* Wheel Styles */
+        .wheel-interface {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        #wheelCanvas {
+            max-width: 100%;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .pointer {
+            position: absolute;
+            top: 43px; /* Aligned with canvas top */
+            right: calc(50% - 15px);
+            width: 0; 
+            height: 0; 
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid #1e293b;
+            z-index: 10;
+        }
+        #statusDisplay {
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+            color: var(--primary);
+            min-height: 28px;
+        }
 
         /* Meal Manager */
         .meal-input-group {
@@ -110,7 +146,7 @@
             cursor: pointer;
         }
         .meal-list {
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
             font-size: 0.9rem;
             border: 1px solid var(--border);
@@ -129,45 +165,38 @@
             background: none;
             border: none;
         }
-
-        /* Text Wheel / Result Display */
-        .spinner-display {
-            font-size: 1.5rem;
-            font-weight: bold;
-            text-align: center;
-            padding: 20px;
-            background: #eef2ff;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            min-height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px dashed var(--primary);
-        }
     </style>
 </head>
 <body>
 
-    <h1>Taco Tuesday & Beyond: Dinner Planner</h1>
+    <h1>Weekly Dinner Wheel Spinner</h1>
 
-    <div class="actions" style="max-width: 1000px; width: 100%;">
-        <button class="main-btn" onclick="generateWeek()">🎲 Spin the Week!</button>
+    <div class="actions">
+        <button class="main-btn" id="spinBtn" onclick="spinTheWeek()">🎲 Spin the Week!</button>
         <button class="main-btn" style="background:#64748b;" onclick="clearWeek()">Reset Week</button>
     </div>
 
     <div class="container">
         <!-- Main Weekly Planner -->
         <div class="card">
-            <div id="spinnerDisplay" class="spinner-display">Click "Spin the Week!" to fill open days</div>
+            <h3>Your Week</h3>
             <div id="weekPlanner"></div>
+        </div>
+
+        <!-- Wheel Visualizer -->
+        <div class="card wheel-interface">
+            <div id="statusDisplay">Ready to spin!</div>
+            <div style="position: relative; width: 300px; height: 320px;">
+                <div class="pointer"></div>
+                <canvas id="wheelCanvas" width="300" height="300"></canvas>
+            </div>
         </div>
 
         <!-- Meal List Manager -->
         <div class="card">
             <h3>Manage Meals (<span id="mealCount">0</span>)</h3>
             <div class="meal-input-group">
-                <input type="text" id="newMealInput" placeholder="Add a new dinner choice...">
+                <input type="text" id="newMealInput" placeholder="Add a dinner choice...">
                 <button class="add-btn" onclick="addCustomMeal()">Add</button>
             </div>
             <div class="meal-list" id="mealListContainer"></div>
@@ -175,53 +204,57 @@
     </div>
 
     <script>
-        // --- 1. YOUR INITIAL 40ish MEALS ---
-        // Edit or expand this list directly!
         const defaultMeals = [
             "Tacos", "Spaghetti Bolognese", "Homemade Pizza", "Chicken Stir Fry", 
             "Beef & Broccoli", "Roast Chicken", "Salmon & Asparagus", "Chili Con Carne",
             "Pulled Pork Sandwiches", "Chicken Caesar Salad", "Burgers & Fries", "Butter Chicken",
             "Lasagna", "Mac & Cheese", "Steak & Mashed Potatoes", "Pesto Pasta",
             "Fajitas", "Shepherd's Pie", "Chicken Parm", "Quesadillas",
-            "Sausage & Peppers", "Fish Tacos", "Meatloaf", "Greek Salad & Souvlaki",
-            "Enchiladas", "Baked Ziti", "Fried Rice", "Tomato Soup & Grilled Cheese",
+            "Sausage & Peppers", "Fish Tacos", "Meatloaf", "Greek Salad",
+            "Enchiladas", "Baked Ziti", "Fried Rice", "Grilled Cheese & Soup",
             "BBQ Ribs", "Shrimp Scampi", "Chicken Alfredo", "Beef Stew",
-            "Stuffed Peppers", "Clam Chowder", "Falafel Gyros", "Pork Chops",
-            "Sloppy Joes", "Ramen Bowls", "Frittata / Breakfast for Dinner", "BLTs"
+            "Stuffed Peppers", "Pork Chops", "Sloppy Joes", "Ramen Bowls"
         ];
 
         const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
         
-        // --- 2. STATE MANAGEMENT ---
         let meals = JSON.parse(localStorage.getItem('dinnerMeals')) || defaultMeals;
         let schedule = JSON.parse(localStorage.getItem('dinnerSchedule')) || {};
         let blockedDays = JSON.parse(localStorage.getItem('dinnerBlockedDays')) || [];
 
-        // --- 3. INITIALIZATION ---
+        // Wheel animation variables
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentAngle = 0;
+        let isSpinning = false;
+
+        // Distinct, bright color list for the slices
+        const colors = ["#f87171", "#fb923c", "#fbbf24", "#34d399", "#22d3ee", "#60a5fa", "#818cf8", "#c084fc", "#f472b6"];
+
         function init() {
             if(!localStorage.getItem('dinnerMeals')) {
                 localStorage.setItem('dinnerMeals', JSON.stringify(meals));
             }
             renderWeek();
             renderMealList();
+            drawWheel(meals);
         }
 
-        // --- 4. RENDER FUNCTIONS ---
         function renderWeek() {
             const planner = document.getElementById('weekPlanner');
             planner.innerHTML = '';
 
             days.forEach(day => {
                 const isBlocked = blockedDays.includes(day);
-                let currentMeal = schedule[day] || "Not assigned yet";
-                if (isBlocked) currentMeal = "🚫 Eating Out / Blocked";
+                let currentMeal = schedule[day] || "Waiting for spin...";
+                if (isBlocked) currentMeal = "🚫 Eating Out";
 
                 const row = document.createElement('div');
                 row.className = 'day-row';
                 row.innerHTML = `
                     <div class="day-name">${day}</div>
-                    <div class="meal-assigned" style="${isBlocked ? 'color: #ef4444; font-style: italic;' : ''}">${currentMeal}</div>
-                    <button class="eat-out-btn ${isBlocked ? 'blocked' : ''}" onclick="toggleBlockDay('${day}')">
+                    <div class="meal-assigned" style="${isBlocked ? 'color: #ef4444; font-style: italic;' : schedule[day] ? 'color: #1e293b;' : 'color: #94a3b8;'}">${currentMeal}</div>
+                    <button class="eat-out-btn ${isBlocked ? 'blocked' : ''}" ${isSpinning ? 'disabled' : ''} onclick="toggleBlockDay('${day}')">
                         ${isBlocked ? 'Unblock' : 'Eat Out'}
                     </button>
                 `;
@@ -239,17 +272,66 @@
                 item.className = 'meal-item';
                 item.innerHTML = `
                     <span>${meal}</span>
-                    <button class="delete-meal" onclick="deleteMeal(${index})">✕</button>
+                    <button class="delete-meal" ${isSpinning ? 'disabled' : ''} onclick="deleteMeal(${index})">✕</button>
                 `;
                 container.appendChild(item);
             });
         }
 
-        // --- 5. LOGIC & USER ACTIONS ---
+        function drawWheel(currentPool, highlightIndex = -1) {
+            const numSegments = currentPool.length;
+            if (numSegments === 0) return;
+            const arcSize = (2 * Math.PI) / numSegments;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < numSegments; i++) {
+                const angle = currentAngle + (i * arcSize);
+                ctx.fillStyle = colors[i % colors.length];
+                
+                // Slightly darken non-selected slices at the very end of a spin for clarity
+                if (highlightIndex !== -1 && i !== highlightIndex) {
+                    ctx.globalAlpha = 0.4;
+                } else {
+                    ctx.globalAlpha = 1.0;
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(150, 150);
+                ctx.arc(150, 150, 145, angle, angle + arcSize);
+                ctx.lineTo(150, 150);
+                ctx.fill();
+
+                // Draw Text labels if pool size isn't overwhelmingly dense
+                if (numSegments <= 45) {
+                    ctx.save();
+                    ctx.fillStyle = "#1e293b";
+                    ctx.font = "bold 10px sans-serif";
+                    ctx.translate(150, 150);
+                    ctx.rotate(angle + (arcSize / 2));
+                    ctx.textAlign = "right";
+                    // Truncate long meal names
+                    let text = currentPool[i];
+                    if(text.length > 15) text = text.substring(0,13) + '...';
+                    ctx.fillText(text, 135, 4);
+                    ctx.restore();
+                }
+            }
+            ctx.globalAlpha = 1.0;
+
+            // Center hub
+            ctx.beginPath();
+            ctx.arc(150, 150, 15, 0, 2 * Math.PI);
+            ctx.fillStyle = "#ffffff";
+            ctx.fill();
+            ctx.strokeStyle = "#1e293b";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
         function toggleBlockDay(day) {
             if (blockedDays.includes(day)) {
                 blockedDays = blockedDays.filter(d => d !== day);
-                delete schedule[day];
             } else {
                 blockedDays.push(day);
                 delete schedule[day];
@@ -267,6 +349,7 @@
                 localStorage.setItem('dinnerMeals', JSON.stringify(meals));
                 input.value = '';
                 renderMealList();
+                drawWheel(meals);
             }
         }
 
@@ -274,39 +357,94 @@
             meals.splice(index, 1);
             localStorage.setItem('dinnerMeals', JSON.stringify(meals));
             renderMealList();
+            drawWheel(meals);
         }
 
-        function generateWeek() {
+        // Sequential multi-day spinning logic
+        async function spinTheWeek() {
             const openDays = days.filter(day => !blockedDays.includes(day));
             if (meals.length < openDays.length) {
-                alert("Please add more meals to your pool first!");
+                alert("Please ensure your meal pool size is greater than open days!");
                 return;
             }
 
-            // Shuffle available meals to avoid duplicate choices in the same week
-            let pool = [...meals];
-            let shuffled = pool.sort(() => 0.5 - Math.random());
-
-            openDays.forEach((day, index) => {
-                schedule[day] = shuffled[index];
-            });
-
-            localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
+            isSpinning = true;
+            document.getElementById('spinBtn').disabled = true;
             
-            // Fun little fake spinning display
-            const display = document.getElementById('spinnerDisplay');
-            display.innerText = "🌀 Shuffling the options...";
-            setTimeout(() => {
-                display.innerText = "🗓️ Week Drafted Successully!";
+            // Filter meals to avoid repeating selections within the single week run
+            let localPool = [...meals];
+
+            for (let i = 0; i < openDays.length; i++) {
+                const currentDay = openDays[i];
+                document.getElementById('statusDisplay').innerText = `Spinning for ${currentDay}...`;
+                
+                // Run individual wheel spin animation
+                const selectedMeal = await animateSingleSpin(localPool);
+                
+                schedule[currentDay] = selectedMeal;
+                localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
                 renderWeek();
-            }, 600);
+
+                // Remove selected meal from local pool so next day gets a fresh choice
+                localPool = localPool.filter(m => m !== selectedMeal);
+                
+                // Small breath between days
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+
+            document.getElementById('statusDisplay').innerText = "🎉 Week Complete!";
+            isSpinning = false;
+            document.getElementById('spinBtn').disabled = false;
+            drawWheel(meals); // Reset full wheel view
+        }
+
+        function animateSingleSpin(currentPool) {
+            return new Promise((resolve) => {
+                const spinDuration = 2000; // 2 seconds per spin
+                const startTime = performance.now();
+                
+                // Pick random winning index
+                const winningIndex = Math.floor(Math.random() * currentPool.length);
+                const arcSize = (2 * Math.PI) / currentPool.length;
+                
+                // Calculate target rotation angle so pointer (at top: -90 deg / 1.5*PI rad) lands on segment
+                // Target angle center point of winning segment facing top
+                const targetSliceAngle = (winningIndex * arcSize) + (arcSize / 2);
+                const targetAngleSetup = (1.5 * Math.PI) - targetSliceAngle;
+                // Add 3 full structural rotations for speed effect
+                const finalTargetAngle = targetAngleSetup + (4 * Math.PI * 2); 
+                const baseStartAngle = currentAngle % (2 * Math.PI);
+
+                function updateAnimation(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / spinDuration, 1);
+                    
+                    // Cubic ease-out deceleration curve
+                    const easeOut = 1 - Math.pow(1 - progress, 3);
+                    
+                    currentAngle = baseStartAngle + (finalTargetAngle - baseStartAngle) * easeOut;
+                    
+                    // Draw continuous wheel states
+                    if (progress < 1) {
+                        drawWheel(currentPool);
+                        requestAnimationFrame(updateAnimation);
+                    } else {
+                        // Animation finishes, highlight specific selection row
+                        drawWheel(currentPool, winningIndex);
+                        resolve(currentPool[winningIndex]);
+                    }
+                }
+                requestAnimationFrame(updateAnimation);
+            });
         }
 
         function clearWeek() {
+            if (isSpinning) return;
             schedule = {};
             localStorage.removeItem('dinnerSchedule');
-            document.getElementById('spinnerDisplay').innerText = 'Click "Spin the Week!" to fill open days';
+            document.getElementById('statusDisplay').innerText = 'Ready to spin!';
             renderWeek();
+            drawWheel(meals);
         }
 
         window.onload = init;
