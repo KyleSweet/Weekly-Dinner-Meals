@@ -199,7 +199,7 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
 
-        /* Pointer shifted to 12 o'clock, perfectly overlapping the edge */
+        /* Fixed Pointer sitting perfectly at 12 o'clock */
         .wheel-pointer {
             position: absolute;
             top: -15px;
@@ -274,7 +274,6 @@
         let currentAngle = 0;
         let isSpinning = false;
         
-        // Dynamic accessible palette colors
         const colors = ["#f87171", "#fb923c", "#fbbf24", "#34d399", "#22d3ee", "#60a5fa", "#818cf8", "#c084fc", "#f472b6", "#a7f3d0", "#fed7aa", "#c7d2fe"];
 
         function init() {
@@ -327,7 +326,7 @@
             });
         }
 
-        // CORRECTED WHEEL RENDERING METHOD
+        // ABSOLUTE TRACKING WHEEL DRAWER
         function drawPopUpWheel(visiblePool) {
             const canvas = document.getElementById('wheelCanvas');
             if (!canvas) return;
@@ -339,10 +338,10 @@
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            const segments = 12; 
+            const segments = Math.min(12, visiblePool.length); 
             const arcSize = (2 * Math.PI) / segments;
 
-            // Step 1: Draw the background color segments
+            // Step 1: Draw Slices
             for (let i = 0; i < segments; i++) {
                 const angle = currentAngle + (i * arcSize);
                 
@@ -358,14 +357,12 @@
                 ctx.stroke();
             }
 
-            // Step 2: Superimpose text layout safely over the background slices
+            // Step 2: Overlay synced typography alignments
             for (let i = 0; i < segments; i++) {
                 const angle = currentAngle + (i * arcSize);
                 
                 ctx.save();
                 ctx.translate(centerX, centerY);
-                
-                // Rotate canvas to point cleanly outward toward the center position of this slice
                 ctx.rotate(angle + (arcSize / 2));
                 
                 ctx.textAlign = "right";
@@ -373,15 +370,14 @@
                 ctx.fillStyle = "#1e293b";
                 ctx.font = "bold 13px system-ui, -apple-system, sans-serif";
                 
-                let mealText = visiblePool[i % visiblePool.length] || "";
+                let mealText = visiblePool[i] || "";
                 if(mealText.length > 18) mealText = mealText.substring(0, 15) + '...';
                 
-                // Draw text slightly offset from the outside perimeter line
                 ctx.fillText(mealText, radius - 15, 0);
                 ctx.restore();
             }
 
-            // Center Pin Hub Decoration
+            // Central pin hub design
             ctx.beginPath();
             ctx.arc(centerX, centerY, 24, 0, 2 * Math.PI);
             ctx.fillStyle = "#1e293b";
@@ -445,7 +441,7 @@
                 renderWeek();
 
                 localPool = localPool.filter(m => m !== selectedMeal);
-                await new Promise(resolve => setTimeout(resolve, 800));
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
             document.getElementById('modalStatus').innerText = "🎉 Week Drafted!";
@@ -458,42 +454,61 @@
             }, 1500);
         }
 
+        // HARDWIRED PHYSICS AND TEXT MATCHING ENGINE
         function animateSingleSpin(currentPool) {
             return new Promise((resolve) => {
-                const spinDuration = 2000; 
+                const spinDuration = 2400; 
                 const startTime = performance.now();
                 
-                const winningIndex = Math.floor(Math.random() * currentPool.length);
-                const winningMeal = currentPool[winningIndex];
+                // 1. Pick exactly 12 items to load onto the wheel for this specific run
+                // Shuffling ensures variety if the master list has 40+ items
+                let wheelPool = [...currentPool].sort(() => 0.5 - Math.random()).slice(0, 12);
+                const segments = wheelPool.length;
+                const arcSize = (2 * Math.PI) / segments;
 
-                let visualSlices = [];
-                let shiftOffset = winningIndex;
-                for(let s=0; s<12; s++) {
-                    visualSlices.push(currentPool[(shiftOffset + s) % currentPool.length]);
-                }
+                // 2. Pick the actual winning index from this exact visual set
+                const winningIndex = Math.floor(Math.random() * segments);
+                const winningMeal = wheelPool[winningIndex];
 
-                // Standardizing continuous spin values smoothly over rounds
-                const totalRotationTarget = (Math.random() * 2 + 4) * Math.PI * 2; 
-                const startAngle = currentAngle;
+                // 3. Mathematical alignment targeting the top pointer center frame (12 o'clock)
+                // Canvas 12 o'clock is at -90 degrees (-Math.PI / 2).
+                // To land the winning wedge center on the pointer, the final position must resolve perfectly.
+                const targetSliceCenterAngle = (winningIndex * arcSize) + (arcSize / 2);
+                const destinationStopAngle = (Math.PI * 2) - targetSliceCenterAngle - (Math.PI / 2);
+                
+                // Add 4-6 full complete structural spins to create satisfying speed
+                const fullRoundsMultiplier = (Math.floor(Math.random() * 2) + 4) * Math.PI * 2;
+                const totalRotationTarget = fullRoundsMultiplier + destinationStopAngle;
+                
+                // Keep the canvas continuous instead of snapping back to zero layout
+                const normalizedStartAngle = currentAngle % (Math.PI * 2);
 
                 function updateAnimation(now) {
                     const elapsed = now - startTime;
                     const progress = Math.min(elapsed / spinDuration, 1);
                     
+                    // Fourth-degree ease-out curve ensures realistic slow deceleration
                     const easeOut = 1 - Math.pow(1 - progress, 4);
-                    currentAngle = startAngle + totalRotationTarget * easeOut;
+                    currentAngle = normalizedStartAngle + (totalRotationTarget - normalizedStartAngle) * easeOut;
                     
-                    drawPopUpWheel(visualSlices);
+                    drawPopUpWheel(wheelPool);
+
+                    // Calculate live pointer index feedback in real-time
+                    // Determines which wedge is currently passing under the 12 o'clock position (-Math.PI / 2)
+                    let rawPointingAngle = (-Math.PI / 2) - currentAngle;
+                    // Normalize the angle calculation to remain between 0 and 2*PI
+                    while (rawPointingAngle < 0) rawPointingAngle += Math.PI * 2;
+                    let liveWedgeIndex = Math.floor((rawPointingAngle % (Math.PI * 2)) / arcSize) % segments;
+                    let currentPassingText = wheelPool[liveWedgeIndex] || "...";
 
                     if (progress < 0.85) {
-                        const speedFactor = Math.floor(currentAngle * 2);
-                        const tickerIndex = Math.abs(speedFactor) % currentPool.length;
-                        document.getElementById('modalLiveSelection').innerText = `🎰 Passing: ${currentPool[tickerIndex]}`;
+                        document.getElementById('modalLiveSelection').innerText = `🎰 Passing: ${currentPassingText}`;
                         requestAnimationFrame(updateAnimation);
                     } else if (progress < 1) {
-                        document.getElementById('modalLiveSelection').innerText = `🎯 Slowing down...`;
+                        document.getElementById('modalLiveSelection').innerText = `🎯 Ticking... ${currentPassingText}`;
                         requestAnimationFrame(updateAnimation);
                     } else {
+                        // Force final snap confirmation
                         document.getElementById('modalLiveSelection').innerText = `✅ Chosen: ${winningMeal}!`;
                         resolve(winningMeal);
                     }
