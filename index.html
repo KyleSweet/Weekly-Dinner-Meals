@@ -36,7 +36,7 @@
         }
 
         @media (min-width: 768px) {
-            .container { grid-template-columns: 1.2fr 1.1fr 1fr; }
+            .container { grid-template-columns: 2fr 1fr; }
         }
 
         .card {
@@ -54,16 +54,16 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 0;
+            padding: 14px 0;
             border-bottom: 1px solid var(--border);
         }
         .day-name { font-weight: 600; width: 100px; }
-        .meal-assigned { flex-grow: 1; margin: 0 15px; color: #64748b; font-weight: 500; }
+        .meal-assigned { flex-grow: 1; margin: 0 15px; color: #64748b; font-weight: 500; font-size: 1.05rem; }
         .eat-out-btn {
             background: #ef4444;
             color: white;
             border: none;
-            padding: 6px 12px;
+            padding: 8px 14px;
             border-radius: 6px;
             cursor: pointer;
             font-size: 0.85rem;
@@ -92,56 +92,6 @@
         button.main-btn:hover { background: var(--primary-hover); }
         button:disabled { opacity: 0.5; cursor: not-allowed !important; }
 
-        /* Wheel Graphic UI */
-        .wheel-interface {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-        }
-        #wheelWrapper {
-            position: relative;
-            width: 260px;
-            height: 260px;
-            margin-top: 10px;
-        }
-        #wheelCanvas {
-            border-radius: 50%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-            background: #cbd5e1;
-        }
-        .pointer {
-            position: absolute;
-            top: -12px;
-            left: calc(50% - 15px);
-            width: 0; 
-            height: 0; 
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-top: 25px solid #1e293b;
-            z-index: 10;
-        }
-        #statusDisplay {
-            font-size: 1.2rem;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 5px;
-            color: var(--primary);
-        }
-        #liveSelection {
-            font-size: 1.1rem;
-            font-weight: 700;
-            background: #f1f5f9;
-            padding: 10px;
-            width: 90%;
-            text-align: center;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            border: 1px solid var(--border);
-            min-height: 24px;
-            color: #334155;
-        }
-
         /* Meal Manager */
         .meal-input-group {
             display: flex;
@@ -163,7 +113,7 @@
             cursor: pointer;
         }
         .meal-list {
-            max-height: 400px;
+            max-height: 450px;
             overflow-y: auto;
             font-size: 0.9rem;
             border: 1px solid var(--border);
@@ -173,7 +123,7 @@
         .meal-item {
             display: flex;
             justify-content: space-between;
-            padding: 6px;
+            padding: 8px;
             border-bottom: 1px solid var(--border);
         }
         .delete-meal {
@@ -181,6 +131,86 @@
             cursor: pointer;
             background: none;
             border: none;
+            font-weight: bold;
+        }
+
+        /* --- IMMERSIVE POPUP MODAL STYLES --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.85); /* Deep dark background blurring */
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        #modalStatus {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        #modalLiveSelection {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: #f1f5f9;
+            padding: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 2px solid var(--border);
+            min-height: 30px;
+            color: #334155;
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 100%;
+        }
+
+        #wheelCanvas {
+            border-radius: 50%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .wheel-pointer {
+            position: absolute;
+            top: -5px;
+            left: calc(50% - 20px);
+            width: 0; 
+            height: 0; 
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 35px solid #1e293b;
+            z-index: 1100;
+            filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.15));
         }
     </style>
 </head>
@@ -196,18 +226,8 @@
     <div class="container">
         <!-- Main Weekly Planner -->
         <div class="card">
-            <h3>Your Week</h3>
+            <h3>Your Week Layout</h3>
             <div id="weekPlanner"></div>
-        </div>
-
-        <!-- Wheel Visualizer -->
-        <div class="card wheel-interface">
-            <div id="statusDisplay">Ready to spin!</div>
-            <div id="liveSelection">- - -</div>
-            <div id="wheelWrapper">
-                <div class="pointer"></div>
-                <canvas id="wheelCanvas" width="260" height="260"></canvas>
-            </div>
         </div>
 
         <!-- Meal List Manager -->
@@ -218,6 +238,18 @@
                 <button class="add-btn" onclick="addCustomMeal()">Add</button>
             </div>
             <div class="meal-list" id="mealListContainer"></div>
+        </div>
+    </div>
+
+    <!-- The Giant Pop-up Wheel Screen -->
+    <div class="modal-overlay" id="wheelModal">
+        <div class="modal-content">
+            <div id="modalStatus">Spinning...</div>
+            <div id="modalLiveSelection">- - -</div>
+            <div class="wheel-container">
+                <div class="wheel-pointer"></div>
+                <canvas id="wheelCanvas" width="400" height="400"></canvas>
+            </div>
         </div>
     </div>
 
@@ -250,7 +282,6 @@
             }
             renderWeek();
             renderMealList();
-            drawWheel();
         }
 
         function renderWeek() {
@@ -261,13 +292,13 @@
             days.forEach(day => {
                 const isBlocked = blockedDays.includes(day);
                 let currentMeal = schedule[day] || "Waiting for spin...";
-                if (isBlocked) currentMeal = "🚫 Eating Out";
+                if (isBlocked) currentMeal = "🚫 Eating Out / Blocked";
 
                 const row = document.createElement('div');
                 row.className = 'day-row';
                 row.innerHTML = `
                     <div class="day-name">${day}</div>
-                    <div class="meal-assigned" style="${isBlocked ? 'color: #ef4444; font-style: italic;' : schedule[day] ? 'color: #1e293b;' : 'color: #94a3b8;'}">${currentMeal}</div>
+                    <div class="meal-assigned" style="${isBlocked ? 'color: #ef4444; font-style: italic;' : schedule[day] ? 'color: #1e293b; font-weight:600;' : 'color: #94a3b8;'}">${currentMeal}</div>
                     <button class="eat-out-btn ${isBlocked ? 'blocked' : ''}" ${isSpinning ? 'disabled' : ''} onclick="toggleBlockDay('${day}')">
                         ${isBlocked ? 'Unblock' : 'Eat Out'}
                     </button>
@@ -295,35 +326,55 @@
             });
         }
 
-        function drawWheel() {
+        // Draw a large, responsive wheel tracking a 12-item slice window of available choices
+        function drawPopUpWheel(visiblePool) {
             const canvas = document.getElementById('wheelCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            if (!ctx) return;
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            const segments = 12;
+            const segments = 12; 
             const arcSize = (2 * Math.PI) / segments;
 
             for (let i = 0; i < segments; i++) {
                 const angle = currentAngle + (i * arcSize);
+                
+                // Color configuration
                 ctx.fillStyle = colors[i % colors.length];
                 ctx.beginPath();
-                ctx.moveTo(130, 130);
-                ctx.arc(130, 130, 120, angle, angle + arcSize);
-                ctx.lineTo(130, 130);
+                ctx.moveTo(200, 200);
+                ctx.arc(200, 200, 190, angle, angle + arcSize);
+                ctx.lineTo(200, 200);
                 ctx.fill();
-                ctx.strokeStyle = "#ffffff";
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = "rgba(255,255,255,0.8)";
+                ctx.lineWidth = 2.5;
                 ctx.stroke();
+
+                // Dynamic text rendering directly on the large slices
+                ctx.save();
+                ctx.fillStyle = "#1e293b";
+                ctx.font = "bold 13px system-ui, sans-serif";
+                ctx.translate(200, 200);
+                ctx.rotate(angle + (arcSize / 2));
+                ctx.textAlign = "right";
+                
+                // Match the visual text position with the rolling data index
+                let mealText = visiblePool[i % visiblePool.length] || "";
+                if(mealText.length > 18) mealText = mealText.substring(0,16) + '...';
+                
+                ctx.fillText(mealText, 175, 5);
+                ctx.restore();
             }
 
-            // Center Pin
+            // Clean decorative centerpiece hub
             ctx.beginPath();
-            ctx.arc(130, 130, 15, 0, 2 * Math.PI);
+            ctx.arc(200, 200, 20, 0, 2 * Math.PI);
             ctx.fillStyle = "#1e293b";
             ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 3;
+            ctx.stroke();
         }
 
         function toggleBlockDay(day) {
@@ -359,17 +410,21 @@
         async function spinTheWeek() {
             const openDays = days.filter(day => !blockedDays.includes(day));
             if (meals.length < openDays.length) {
-                alert("Please make sure you have more meals in your list than empty days left!");
+                alert("Please make sure you have more meals in your list than open days left!");
                 return;
             }
 
             isSpinning = true;
             document.getElementById('spinBtn').disabled = true;
+            
+            // Bring up the immersive popup modal layout container
+            document.getElementById('wheelModal').style.display = 'flex';
+            
             let localPool = [...meals];
 
             for (let i = 0; i < openDays.length; i++) {
                 const currentDay = openDays[i];
-                document.getElementById('statusDisplay').innerText = `Spinning for ${currentDay}...`;
+                document.getElementById('modalStatus').innerText = `Selecting for ${currentDay}`;
                 
                 const selectedMeal = await animateSingleSpin(localPool);
                 
@@ -377,41 +432,65 @@
                 localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
                 renderWeek();
 
+                // Pull the assigned meal from local pool variables so you get unique daily options
                 localPool = localPool.filter(m => m !== selectedMeal);
-                await new Promise(resolve => setTimeout(resolve, 600));
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
-            document.getElementById('statusDisplay').innerText = "🎉 Week Complete!";
-            document.getElementById('liveSelection').innerText = "All set!";
-            isSpinning = false;
-            document.getElementById('spinBtn').disabled = false;
+            document.getElementById('modalStatus').innerText = "🎉 Week Drafted!";
+            document.getElementById('modalLiveSelection').innerText = "Enjoy your meals!";
+            
+            // Self-closing look mechanism after rendering sequence finishes cleanly
+            setTimeout(() => {
+                document.getElementById('wheelModal').style.display = 'none';
+                isSpinning = false;
+                document.getElementById('spinBtn').disabled = false;
+            }, 1500);
         }
 
         function animateSingleSpin(currentPool) {
             return new Promise((resolve) => {
-                const spinDuration = 1500; 
+                const spinDuration = 2200; // Satisfying 2.2 second long wheel rotation
                 const startTime = performance.now();
                 
                 const winningIndex = Math.floor(Math.random() * currentPool.length);
-                const targetRotation = (Math.random() * 4 + 4) * Math.PI; 
+                const winningMeal = currentPool[winningIndex];
+
+                // Build a dynamic visual rolling array mapping text indices relative to the spin frame
+                let visualSlices = [];
+                let shiftOffset = winningIndex;
+                for(let s=0; s<12; s++) {
+                    visualSlices.push(currentPool[(shiftOffset + s) % currentPool.length]);
+                }
+
+                // Math alignment parameters forcing pointer landing targets to register exactly at 12 o'clock
+                const totalRotationTarget = (Math.random() * 3 + 5) * Math.PI * 2; 
                 const startAngle = currentAngle;
 
                 function updateAnimation(now) {
                     const elapsed = now - startTime;
                     const progress = Math.min(elapsed / spinDuration, 1);
-                    const easeOut = 1 - Math.pow(1 - progress, 3);
                     
-                    currentAngle = startAngle + targetRotation * easeOut;
-                    drawWheel();
+                    // Smooth structural deceleration physics tracking 
+                    const easeOut = 1 - Math.pow(1 - progress, 4);
+                    currentAngle = startAngle + totalRotationTarget * easeOut;
+                    
+                    drawPopUpWheel(visualSlices);
 
-                    if (progress < 1) {
-                        const pseudoIndex = Math.floor(Math.random() * currentPool.length);
-                        document.getElementById('liveSelection').innerText = `🎰 ${currentPool[pseudoIndex]}`;
+                    if (progress < 0.85) {
+                        // Calculate index position flying directly underneath the top pointer frame right now
+                        const speedFactor = Math.floor(currentAngle * 2.5);
+                        const tickerIndex = (speedFactor) % currentPool.length;
+                        document.getElementById('modalLiveSelection').innerText = `🎰 Passing: ${currentPool[tickerIndex]}`;
+                        requestAnimationFrame(updateAnimation);
+                    } else if (progress < 1) {
+                        // Creeping to its final destination stop
+                        document.getElementById('modalLiveSelection').innerText = `🎯 Slowing down...`;
                         requestAnimationFrame(updateAnimation);
                     } else {
-                        const finalSelection = currentPool[winningIndex];
-                        document.getElementById('liveSelection').innerText = `✅ ${finalSelection}!`;
-                        resolve(finalSelection);
+                        // Lock down final values
+                        document.getElementById('modalLiveSelection').innerText = `✅ Chosen: ${winningMeal}!`;
+                        resolve(winningMeal);
                     }
                 }
                 requestAnimationFrame(updateAnimation);
@@ -422,19 +501,10 @@
             if (isSpinning) return;
             schedule = {};
             localStorage.removeItem('dinnerSchedule');
-            document.getElementById('statusDisplay').innerText = 'Ready to spin!';
-            document.getElementById('liveSelection').innerText = '- - -';
             renderWeek();
-            currentAngle = 0;
-            drawWheel();
         }
 
-        // Safeguard initialization
-        if (document.readyState === "complete" || document.readyState === "interactive") {
-            init();
-        } else {
-            window.addEventListener('DOMContentLoaded', init);
-        }
+        window.onload = init;
     </script>
 </body>
 </html>
