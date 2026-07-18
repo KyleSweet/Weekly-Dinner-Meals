@@ -134,14 +134,14 @@
             font-weight: bold;
         }
 
-        /* --- IMMERSIVE POPUP MODAL STYLES --- */
+        /* Pop-up Modal */
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(15, 23, 42, 0.85); /* Deep dark background blurring */
+            background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(4px);
             display: none;
             align-items: center;
@@ -157,8 +157,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            width: 90%;
-            max-width: 500px;
+            width: 95%;
+            max-width: 460px;
             position: relative;
         }
 
@@ -192,7 +192,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            max-width: 100%;
         }
 
         #wheelCanvas {
@@ -200,17 +199,18 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
 
+        /* Pointer shifted to 12 o'clock, perfectly overlapping the edge */
         .wheel-pointer {
             position: absolute;
-            top: -5px;
-            left: calc(50% - 20px);
+            top: -15px;
+            left: calc(50% - 15px);
             width: 0; 
             height: 0; 
-            border-left: 20px solid transparent;
-            border-right: 20px solid transparent;
-            border-top: 35px solid #1e293b;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid #1e293b;
             z-index: 1100;
-            filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.15));
+            filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.2));
         }
     </style>
 </head>
@@ -255,15 +255,14 @@
 
     <script>
         const defaultMeals = [
-            "Tacos", "Spaghetti Bolognese", "Homemade Pizza", "Chicken Stir Fry", 
-            "Beef & Broccoli", "Roast Chicken", "Salmon & Asparagus", "Chili Con Carne",
-            "Pulled Pork Sandwiches", "Chicken Caesar Salad", "Burgers & Fries", "Butter Chicken",
-            "Lasagna", "Mac & Cheese", "Steak & Mashed Potatoes", "Pesto Pasta",
+            "Tacos", "Spaghetti", "Homemade Pizza", "Chicken Stir Fry", 
+            "Beef & Broccoli", "Roast Chicken", "Salmon", "Chili",
+            "Pulled Pork", "Caesar Salad", "Burgers & Fries", "Butter Chicken",
+            "Lasagna", "Mac & Cheese", "Steak", "Pesto Pasta",
             "Fajitas", "Shepherd's Pie", "Chicken Parm", "Quesadillas",
             "Sausage & Peppers", "Fish Tacos", "Meatloaf", "Greek Salad",
-            "Enchiladas", "Baked Ziti", "Fried Rice", "Grilled Cheese & Soup",
-            "BBQ Ribs", "Shrimp Scampi", "Chicken Alfredo", "Beef Stew",
-            "Stuffed Peppers", "Pork Chops", "Sloppy Joes", "Ramen Bowls"
+            "Enchiladas", "Baked Ziti", "Fried Rice", "Grilled Cheese",
+            "BBQ Ribs", "Shrimp Scampi", "Chicken Alfredo", "Beef Stew"
         ];
 
         const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -274,7 +273,9 @@
 
         let currentAngle = 0;
         let isSpinning = false;
-        const colors = ["#f87171", "#fb923c", "#fbbf24", "#34d399", "#22d3ee", "#60a5fa", "#818cf8", "#c084fc", "#f472b6"];
+        
+        // Dynamic accessible palette colors
+        const colors = ["#f87171", "#fb923c", "#fbbf24", "#34d399", "#22d3ee", "#60a5fa", "#818cf8", "#c084fc", "#f472b6", "#a7f3d0", "#fed7aa", "#c7d2fe"];
 
         function init() {
             if(!localStorage.getItem('dinnerMeals')) {
@@ -326,50 +327,63 @@
             });
         }
 
-        // Draw a large, responsive wheel tracking a 12-item slice window of available choices
+        // CORRECTED WHEEL RENDERING METHOD
         function drawPopUpWheel(visiblePool) {
             const canvas = document.getElementById('wheelCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = centerX - 10;
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             const segments = 12; 
             const arcSize = (2 * Math.PI) / segments;
 
+            // Step 1: Draw the background color segments
             for (let i = 0; i < segments; i++) {
                 const angle = currentAngle + (i * arcSize);
                 
-                // Color configuration
                 ctx.fillStyle = colors[i % colors.length];
                 ctx.beginPath();
-                ctx.moveTo(200, 200);
-                ctx.arc(200, 200, 190, angle, angle + arcSize);
-                ctx.lineTo(200, 200);
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, angle, angle + arcSize);
+                ctx.lineTo(centerX, centerY);
                 ctx.fill();
-                ctx.strokeStyle = "rgba(255,255,255,0.8)";
-                ctx.lineWidth = 2.5;
+                
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 2;
                 ctx.stroke();
+            }
 
-                // Dynamic text rendering directly on the large slices
+            // Step 2: Superimpose text layout safely over the background slices
+            for (let i = 0; i < segments; i++) {
+                const angle = currentAngle + (i * arcSize);
+                
                 ctx.save();
-                ctx.fillStyle = "#1e293b";
-                ctx.font = "bold 13px system-ui, sans-serif";
-                ctx.translate(200, 200);
+                ctx.translate(centerX, centerY);
+                
+                // Rotate canvas to point cleanly outward toward the center position of this slice
                 ctx.rotate(angle + (arcSize / 2));
+                
                 ctx.textAlign = "right";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#1e293b";
+                ctx.font = "bold 13px system-ui, -apple-system, sans-serif";
                 
-                // Match the visual text position with the rolling data index
                 let mealText = visiblePool[i % visiblePool.length] || "";
-                if(mealText.length > 18) mealText = mealText.substring(0,16) + '...';
+                if(mealText.length > 18) mealText = mealText.substring(0, 15) + '...';
                 
-                ctx.fillText(mealText, 175, 5);
+                // Draw text slightly offset from the outside perimeter line
+                ctx.fillText(mealText, radius - 15, 0);
                 ctx.restore();
             }
 
-            // Clean decorative centerpiece hub
+            // Center Pin Hub Decoration
             ctx.beginPath();
-            ctx.arc(200, 200, 20, 0, 2 * Math.PI);
+            ctx.arc(centerX, centerY, 24, 0, 2 * Math.PI);
             ctx.fillStyle = "#1e293b";
             ctx.fill();
             ctx.strokeStyle = "#ffffff";
@@ -416,15 +430,13 @@
 
             isSpinning = true;
             document.getElementById('spinBtn').disabled = true;
-            
-            // Bring up the immersive popup modal layout container
             document.getElementById('wheelModal').style.display = 'flex';
             
             let localPool = [...meals];
 
             for (let i = 0; i < openDays.length; i++) {
                 const currentDay = openDays[i];
-                document.getElementById('modalStatus').innerText = `Selecting for ${currentDay}`;
+                document.getElementById('modalStatus').innerText = `Selecting for ${currentDay}...`;
                 
                 const selectedMeal = await animateSingleSpin(localPool);
                 
@@ -432,15 +444,13 @@
                 localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
                 renderWeek();
 
-                // Pull the assigned meal from local pool variables so you get unique daily options
                 localPool = localPool.filter(m => m !== selectedMeal);
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 800));
             }
 
             document.getElementById('modalStatus').innerText = "🎉 Week Drafted!";
             document.getElementById('modalLiveSelection').innerText = "Enjoy your meals!";
             
-            // Self-closing look mechanism after rendering sequence finishes cleanly
             setTimeout(() => {
                 document.getElementById('wheelModal').style.display = 'none';
                 isSpinning = false;
@@ -450,45 +460,40 @@
 
         function animateSingleSpin(currentPool) {
             return new Promise((resolve) => {
-                const spinDuration = 2200; // Satisfying 2.2 second long wheel rotation
+                const spinDuration = 2000; 
                 const startTime = performance.now();
                 
                 const winningIndex = Math.floor(Math.random() * currentPool.length);
                 const winningMeal = currentPool[winningIndex];
 
-                // Build a dynamic visual rolling array mapping text indices relative to the spin frame
                 let visualSlices = [];
                 let shiftOffset = winningIndex;
                 for(let s=0; s<12; s++) {
                     visualSlices.push(currentPool[(shiftOffset + s) % currentPool.length]);
                 }
 
-                // Math alignment parameters forcing pointer landing targets to register exactly at 12 o'clock
-                const totalRotationTarget = (Math.random() * 3 + 5) * Math.PI * 2; 
+                // Standardizing continuous spin values smoothly over rounds
+                const totalRotationTarget = (Math.random() * 2 + 4) * Math.PI * 2; 
                 const startAngle = currentAngle;
 
                 function updateAnimation(now) {
                     const elapsed = now - startTime;
                     const progress = Math.min(elapsed / spinDuration, 1);
                     
-                    // Smooth structural deceleration physics tracking 
                     const easeOut = 1 - Math.pow(1 - progress, 4);
                     currentAngle = startAngle + totalRotationTarget * easeOut;
                     
                     drawPopUpWheel(visualSlices);
 
                     if (progress < 0.85) {
-                        // Calculate index position flying directly underneath the top pointer frame right now
-                        const speedFactor = Math.floor(currentAngle * 2.5);
-                        const tickerIndex = (speedFactor) % currentPool.length;
+                        const speedFactor = Math.floor(currentAngle * 2);
+                        const tickerIndex = Math.abs(speedFactor) % currentPool.length;
                         document.getElementById('modalLiveSelection').innerText = `🎰 Passing: ${currentPool[tickerIndex]}`;
                         requestAnimationFrame(updateAnimation);
                     } else if (progress < 1) {
-                        // Creeping to its final destination stop
                         document.getElementById('modalLiveSelection').innerText = `🎯 Slowing down...`;
                         requestAnimationFrame(updateAnimation);
                     } else {
-                        // Lock down final values
                         document.getElementById('modalLiveSelection').innerText = `✅ Chosen: ${winningMeal}!`;
                         resolve(winningMeal);
                     }
