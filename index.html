@@ -56,9 +56,16 @@
             justify-content: space-between;
             padding: 14px 0;
             border-bottom: 1px solid var(--border);
+            gap: 10px;
         }
         .day-name { font-weight: 600; width: 100px; }
-        .meal-assigned { flex-grow: 1; margin: 0 15px; color: #64748b; font-weight: 500; font-size: 1.05rem; }
+        .meal-assigned { flex-grow: 1; margin: 0 5px; color: #64748b; font-weight: 500; font-size: 1.05rem; }
+        
+        .action-btns {
+            display: flex;
+            gap: 8px;
+        }
+        
         .eat-out-btn {
             background: #ef4444;
             color: white;
@@ -67,8 +74,21 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 0.85rem;
+            font-weight: 500;
         }
         .eat-out-btn.blocked { background: #94a3b8; }
+        
+        .reroll-btn {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .reroll-btn:hover { background: #d97706; }
 
         /* Controls */
         .actions {
@@ -199,7 +219,6 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
 
-        /* Fixed Pointer sitting perfectly at 12 o'clock */
         .wheel-pointer {
             position: absolute;
             top: -15px;
@@ -254,15 +273,17 @@
     </div>
 
     <script>
+        // YOUR EXPLICIT DEFAULT DINNER OPTIONS
         const defaultMeals = [
-            "Tacos", "Spaghetti", "Homemade Pizza", "Chicken Stir Fry", 
-            "Beef & Broccoli", "Roast Chicken", "Salmon", "Chili",
-            "Pulled Pork", "Caesar Salad", "Burgers & Fries", "Butter Chicken",
-            "Lasagna", "Mac & Cheese", "Steak", "Pesto Pasta",
-            "Fajitas", "Shepherd's Pie", "Chicken Parm", "Quesadillas",
-            "Sausage & Peppers", "Fish Tacos", "Meatloaf", "Greek Salad",
-            "Enchiladas", "Baked Ziti", "Fried Rice", "Grilled Cheese",
-            "BBQ Ribs", "Shrimp Scampi", "Chicken Alfredo", "Beef Stew"
+            "Sesame Chicken", "Carbonara", "Tacos", "Beef Short Ribs", "Breakfast", 
+            "Spaghetti & Meatballs", "Sausage & Peppers", "Hamburgers", "Chicken Caesar Salad", 
+            "Fried Chicken Sandwich", "Beef Stir Fry", "Butter Chicken", "Meatball Subs", 
+            "Fajitas", "Quesadilla", "Grilled Cheese Sandwich", "Pulled Pork", "Poutine", 
+            "Greek", "Bolognese", "Beef & Broccoli", "Sausage on a Bun", "Chili", 
+            "Perogies", "Chicken Stir Fry", "Chicken Fried Rice", "Mac & Cheese", "Stew", 
+            "Ham", "Chicken Wings", "Pork Tenderloin", "Chicken Parm", "Sloppy Joe", 
+            "Chicken Tenders", "Chicken Teriyaki", "Burritos", "Chicken & Dumplings", 
+            "Shrimp & Grits", "Tri Tip Sandwich", "Chicken Dumplets", "Turkey Breast"
         ];
 
         const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -277,6 +298,7 @@
         const colors = ["#f87171", "#fb923c", "#fbbf24", "#34d399", "#22d3ee", "#60a5fa", "#818cf8", "#c084fc", "#f472b6", "#a7f3d0", "#fed7aa", "#c7d2fe"];
 
         function init() {
+            // Force reset to the brand new custom default list if they haven't modified it yet
             if(!localStorage.getItem('dinnerMeals')) {
                 localStorage.setItem('dinnerMeals', JSON.stringify(meals));
             }
@@ -291,17 +313,27 @@
 
             days.forEach(day => {
                 const isBlocked = blockedDays.includes(day);
+                const hasMeal = !!schedule[day];
                 let currentMeal = schedule[day] || "Waiting for spin...";
                 if (isBlocked) currentMeal = "🚫 Eating Out / Blocked";
 
                 const row = document.createElement('div');
                 row.className = 'day-row';
+                
+                // Only display the Re-roll option if a meal has actually been picked and the day isn't blocked
+                const rerollButtonHtml = (hasMeal && !isBlocked) 
+                    ? `<button class="reroll-btn" ${isSpinning ? 'disabled' : ''} onclick="rerollSingleDay('${day}')">🎲 Reroll</button>` 
+                    : '';
+
                 row.innerHTML = `
                     <div class="day-name">${day}</div>
                     <div class="meal-assigned" style="${isBlocked ? 'color: #ef4444; font-style: italic;' : schedule[day] ? 'color: #1e293b; font-weight:600;' : 'color: #94a3b8;'}">${currentMeal}</div>
-                    <button class="eat-out-btn ${isBlocked ? 'blocked' : ''}" ${isSpinning ? 'disabled' : ''} onclick="toggleBlockDay('${day}')">
-                        ${isBlocked ? 'Unblock' : 'Eat Out'}
-                    </button>
+                    <div class="action-btns">
+                        ${rerollButtonHtml}
+                        <button class="eat-out-btn ${isBlocked ? 'blocked' : ''}" ${isSpinning ? 'disabled' : ''} onclick="toggleBlockDay('${day}')">
+                            ${isBlocked ? 'Unblock' : 'Eat Out'}
+                        </button>
+                    </div>
                 `;
                 planner.appendChild(row);
             });
@@ -326,7 +358,6 @@
             });
         }
 
-        // ABSOLUTE TRACKING WHEEL DRAWER
         function drawPopUpWheel(visiblePool) {
             const canvas = document.getElementById('wheelCanvas');
             if (!canvas) return;
@@ -341,7 +372,6 @@
             const segments = Math.min(12, visiblePool.length); 
             const arcSize = (2 * Math.PI) / segments;
 
-            // Step 1: Draw Slices
             for (let i = 0; i < segments; i++) {
                 const angle = currentAngle + (i * arcSize);
                 
@@ -357,7 +387,6 @@
                 ctx.stroke();
             }
 
-            // Step 2: Overlay synced typography alignments
             for (let i = 0; i < segments; i++) {
                 const angle = currentAngle + (i * arcSize);
                 
@@ -377,7 +406,6 @@
                 ctx.restore();
             }
 
-            // Central pin hub design
             ctx.beginPath();
             ctx.arc(centerX, centerY, 24, 0, 2 * Math.PI);
             ctx.fillStyle = "#1e293b";
@@ -417,6 +445,7 @@
             renderMealList();
         }
 
+        // FULL WEEK SPINNER SEQUENCE
         async function spinTheWeek() {
             const openDays = days.filter(day => !blockedDays.includes(day));
             if (meals.length < openDays.length) {
@@ -425,7 +454,7 @@
             }
 
             isSpinning = true;
-            document.getElementById('spinBtn').disabled = true;
+            document.querySelectorAll('button').forEach(b => b.disabled = true);
             document.getElementById('wheelModal').style.display = 'flex';
             
             let localPool = [...meals];
@@ -450,53 +479,67 @@
             setTimeout(() => {
                 document.getElementById('wheelModal').style.display = 'none';
                 isSpinning = false;
-                document.getElementById('spinBtn').disabled = false;
+                renderWeek(); // Re-enables custom row layout configurations correctly
             }, 1500);
         }
 
-        // HARDWIRED PHYSICS AND TEXT MATCHING ENGINE
+        // --- NEW INDIVIDUAL DAY RE-ROLL FUNCTION ---
+        async function rerollSingleDay(day) {
+            if (meals.length < 1) return;
+            
+            isSpinning = true;
+            document.querySelectorAll('button').forEach(b => b.disabled = true);
+            document.getElementById('wheelModal').style.display = 'flex';
+            
+            document.getElementById('modalStatus').innerText = `Re-rolling ${day}...`;
+            
+            // Allow selecting any dinner choice from the list for the single swap
+            const selectedMeal = await animateSingleSpin([...meals]);
+            
+            schedule[day] = selectedMeal;
+            localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
+            renderWeek();
+            
+            document.getElementById('modalStatus').innerText = "🎯 Choice Updated!";
+            document.getElementById('modalLiveSelection').innerText = `${day} is now ${selectedMeal}!`;
+            
+            setTimeout(() => {
+                document.getElementById('wheelModal').style.display = 'none';
+                isSpinning = false;
+                renderWeek();
+            }, 1500);
+        }
+
         function animateSingleSpin(currentPool) {
             return new Promise((resolve) => {
                 const spinDuration = 2400; 
                 const startTime = performance.now();
                 
-                // 1. Pick exactly 12 items to load onto the wheel for this specific run
-                // Shuffling ensures variety if the master list has 40+ items
                 let wheelPool = [...currentPool].sort(() => 0.5 - Math.random()).slice(0, 12);
                 const segments = wheelPool.length;
                 const arcSize = (2 * Math.PI) / segments;
 
-                // 2. Pick the actual winning index from this exact visual set
                 const winningIndex = Math.floor(Math.random() * segments);
                 const winningMeal = wheelPool[winningIndex];
 
-                // 3. Mathematical alignment targeting the top pointer center frame (12 o'clock)
-                // Canvas 12 o'clock is at -90 degrees (-Math.PI / 2).
-                // To land the winning wedge center on the pointer, the final position must resolve perfectly.
                 const targetSliceCenterAngle = (winningIndex * arcSize) + (arcSize / 2);
                 const destinationStopAngle = (Math.PI * 2) - targetSliceCenterAngle - (Math.PI / 2);
                 
-                // Add 4-6 full complete structural spins to create satisfying speed
                 const fullRoundsMultiplier = (Math.floor(Math.random() * 2) + 4) * Math.PI * 2;
                 const totalRotationTarget = fullRoundsMultiplier + destinationStopAngle;
                 
-                // Keep the canvas continuous instead of snapping back to zero layout
                 const normalizedStartAngle = currentAngle % (Math.PI * 2);
 
                 function updateAnimation(now) {
                     const elapsed = now - startTime;
                     const progress = Math.min(elapsed / spinDuration, 1);
                     
-                    // Fourth-degree ease-out curve ensures realistic slow deceleration
                     const easeOut = 1 - Math.pow(1 - progress, 4);
                     currentAngle = normalizedStartAngle + (totalRotationTarget - normalizedStartAngle) * easeOut;
                     
                     drawPopUpWheel(wheelPool);
 
-                    // Calculate live pointer index feedback in real-time
-                    // Determines which wedge is currently passing under the 12 o'clock position (-Math.PI / 2)
                     let rawPointingAngle = (-Math.PI / 2) - currentAngle;
-                    // Normalize the angle calculation to remain between 0 and 2*PI
                     while (rawPointingAngle < 0) rawPointingAngle += Math.PI * 2;
                     let liveWedgeIndex = Math.floor((rawPointingAngle % (Math.PI * 2)) / arcSize) % segments;
                     let currentPassingText = wheelPool[liveWedgeIndex] || "...";
@@ -508,7 +551,6 @@
                         document.getElementById('modalLiveSelection').innerText = `🎯 Ticking... ${currentPassingText}`;
                         requestAnimationFrame(updateAnimation);
                     } else {
-                        // Force final snap confirmation
                         document.getElementById('modalLiveSelection').innerText = `✅ Chosen: ${winningMeal}!`;
                         resolve(winningMeal);
                     }
@@ -522,6 +564,12 @@
             schedule = {};
             localStorage.removeItem('dinnerSchedule');
             renderWeek();
+        }
+
+        // Quick check to force use of the fresh list if the user's browser is holding onto old defaults
+        if (JSON.stringify(meals) !== JSON.stringify(defaultMeals) && localStorage.getItem('dinnerMeals') === null) {
+            meals = defaultMeals;
+            localStorage.setItem('dinnerMeals', JSON.stringify(meals));
         }
 
         window.onload = init;
