@@ -145,7 +145,7 @@
             cursor: pointer;
         }
         .meal-list {
-            max-height: 450px;
+            max-height: 380px;
             overflow-y: auto;
             font-size: 0.9rem;
             border: 1px solid var(--border);
@@ -181,6 +181,67 @@
             background: none;
             border: none;
             font-weight: bold;
+        }
+
+        /* History Banner & Toggle */
+        .history-box {
+            margin-top: 15px;
+            padding: 12px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #cbd5e1;
+        }
+
+        /* Toggle switch CSS */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 20px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        .history-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 5px;
+        }
+        .tag {
+            background: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
         }
 
         /* Pop-up Modal */
@@ -287,6 +348,22 @@
                 <button class="add-btn" onclick="addCustomMeal()">Add</button>
             </div>
             <div class="meal-list" id="mealListContainer"></div>
+
+            <!-- Resting / History Box -->
+            <div class="history-box">
+                <div class="toggle-row">
+                    <strong>Prevent repeats from last week?</strong>
+                    <label class="switch">
+                        <input type="checkbox" id="preventRepeatsToggle" onchange="togglePreventRepeats()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Resting (<span id="historyCount">0</span>):</span>
+                    <button style="border:none; background:none; color:#ef4444; font-size:0.75rem; cursor:pointer;" onclick="clearHistory()">Clear History</button>
+                </div>
+                <div class="history-tags" id="historyTags"></div>
+            </div>
         </div>
     </div>
 
@@ -319,12 +396,13 @@
         
         let meals = JSON.parse(localStorage.getItem('dinnerMeals')) || defaultMeals;
         let schedule = JSON.parse(localStorage.getItem('dinnerSchedule')) || {};
+        let previousWeekMeals = JSON.parse(localStorage.getItem('dinnerPreviousWeek')) || [];
         let blockedDays = JSON.parse(localStorage.getItem('dinnerBlockedDays')) || [];
+        let preventRepeats = JSON.parse(localStorage.getItem('dinnerPreventRepeats')) ?? true;
 
         let currentAngle = 0;
         let isSpinning = false;
         
-        // Extended alternating colors layout palette to accommodate a massive slice count cleanly
         const colors = [
             "#f87171", "#fb923c", "#fbbf24", "#34d399", "#22d3ee", "#60a5fa", 
             "#818cf8", "#c084fc", "#f472b6", "#a7f3d0", "#fed7aa", "#c7d2fe",
@@ -335,7 +413,19 @@
             if(!localStorage.getItem('dinnerMeals')) {
                 localStorage.setItem('dinnerMeals', JSON.stringify(meals));
             }
+            
+            const toggleEl = document.getElementById('preventRepeatsToggle');
+            if (toggleEl) toggleEl.checked = preventRepeats;
+
             renderWeek();
+            renderMealList();
+            renderHistory();
+        }
+
+        function togglePreventRepeats() {
+            const toggleEl = document.getElementById('preventRepeatsToggle');
+            preventRepeats = toggleEl.checked;
+            localStorage.setItem('dinnerPreventRepeats', JSON.stringify(preventRepeats));
             renderMealList();
         }
 
@@ -383,17 +473,45 @@
             container.innerHTML = '';
             
             meals.forEach((meal, index) => {
+                const isResting = preventRepeats && previousWeekMeals.includes(meal);
                 const item = document.createElement('div');
                 item.className = 'meal-item';
                 item.innerHTML = `
-                    <span class="meal-text" onclick="editMealText(${index})">${meal}</span>
+                    <span class="meal-text" onclick="editMealText(${index})">${meal} ${isResting ? '💤' : ''}</span>
                     <button class="delete-meal" ${isSpinning ? 'disabled' : ''} onclick="deleteMeal(${index})">✕</button>
                 `;
                 container.appendChild(item);
             });
         }
 
-        // REVISION 1: inline text prompt editor function
+        function renderHistory() {
+            const historyCount = document.getElementById('historyCount');
+            const historyTags = document.getElementById('historyTags');
+            if(!historyCount || !historyTags) return;
+
+            historyCount.innerText = previousWeekMeals.length;
+            historyTags.innerHTML = '';
+
+            if (previousWeekMeals.length === 0) {
+                historyTags.innerHTML = '<span style="font-style:italic; color:#94a3b8;">None yet</span>';
+                return;
+            }
+
+            previousWeekMeals.forEach(meal => {
+                const tag = document.createElement('span');
+                tag.className = 'tag';
+                tag.innerText = meal;
+                historyTags.appendChild(tag);
+            });
+        }
+
+        function clearHistory() {
+            previousWeekMeals = [];
+            localStorage.removeItem('dinnerPreviousWeek');
+            renderMealList();
+            renderHistory();
+        }
+
         function editMealText(index) {
             if(isSpinning) return;
             const currentName = meals[index];
@@ -401,28 +519,26 @@
             
             if(updatedName !== null && updatedName.trim() !== "") {
                 const cleanValue = updatedName.trim();
-                // Update in our array pool
                 meals[index] = cleanValue;
                 localStorage.setItem('dinnerMeals', JSON.stringify(meals));
                 
-                // Update any matches sitting on active dashboard schedule too so text lines stay linked
                 for (let day in schedule) {
-                    if (schedule[day] === currentName) {
-                        schedule[day] = cleanValue;
-                    }
+                    if (schedule[day] === currentName) schedule[day] = cleanValue;
                 }
                 localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
                 
+                previousWeekMeals = previousWeekMeals.map(m => m === currentName ? cleanValue : m);
+                localStorage.setItem('dinnerPreviousWeek', JSON.stringify(previousWeekMeals));
+
                 renderMealList();
                 renderWeek();
+                renderHistory();
             }
         }
 
-        // REVISION 3: Manual day configuration selector bypass mechanism
         function manualOverrideDay(day) {
             if (isSpinning) return;
             
-            // Build simple quick choice map list
             let choiceText = `Type or select a direct choice index number for ${day}:\n\n`;
             meals.forEach((m, idx) => {
                 choiceText += `${idx + 1}. ${m}\n`;
@@ -435,12 +551,10 @@
             if (!isNaN(numericSelection) && numericSelection >= 1 && numericSelection <= meals.length) {
                 schedule[day] = meals[numericSelection - 1];
             } else {
-                // Check if they typed a string direct match custom entry name value alternative
                 const matchedExistingMeal = meals.find(m => m.toLowerCase() === response.trim().toLowerCase());
                 if (matchedExistingMeal) {
                     schedule[day] = matchedExistingMeal;
                 } else if (response.trim() !== "") {
-                    // Accept raw fallback overrides
                     schedule[day] = response.trim();
                 } else {
                     return;
@@ -451,7 +565,6 @@
             renderWeek();
         }
 
-        // REVISION 2: Shows full complete list details spread out clean over canvas circumference wheel layout wedges
         function drawPopUpWheel(visiblePool) {
             const canvas = document.getElementById('wheelCanvas');
             if (!canvas) return;
@@ -481,7 +594,6 @@
                 ctx.stroke();
             }
 
-            // Text Pass layer calculations adjustments base configurations
             for (let i = 0; i < segments; i++) {
                 const angle = currentAngle + (i * arcSize);
                 
@@ -493,7 +605,6 @@
                 ctx.textBaseline = "middle";
                 ctx.fillStyle = "#1e293b";
                 
-                // Adjust typography dynamics depending how narrow spacing sections shrink down to fit
                 if (segments > 30) {
                     ctx.font = "bold 9px system-ui, -apple-system, sans-serif";
                 } else if (segments > 20) {
@@ -550,29 +661,43 @@
 
         async function spinTheWeek() {
             const openDays = days.filter(day => !blockedDays.includes(day));
-            if (meals.length < openDays.length) {
-                alert("Please make sure you have more meals in your list than open days left!");
-                return;
+
+            // Save active week to history
+            const activeMealsToArchive = Object.values(schedule).filter(m => m && !m.includes("🚫"));
+            if (activeMealsToArchive.length > 0) {
+                previousWeekMeals = activeMealsToArchive;
+                localStorage.setItem('dinnerPreviousWeek', JSON.stringify(previousWeekMeals));
+                renderHistory();
+            }
+
+            // Apply restriction filter only if toggle is ON
+            let availablePool = [...meals];
+            if (preventRepeats) {
+                availablePool = meals.filter(m => !previousWeekMeals.includes(m));
+            }
+
+            // Fallback safety check if restricted pool is too small
+            if (availablePool.length < openDays.length) {
+                availablePool = [...meals];
             }
 
             isSpinning = true;
             document.querySelectorAll('button').forEach(b => b.disabled = true);
             document.getElementById('wheelModal').style.display = 'flex';
             
-            let localPool = [...meals];
+            schedule = {}; 
 
             for (let i = 0; i < openDays.length; i++) {
                 const currentDay = openDays[i];
                 document.getElementById('modalStatus').innerText = `Selecting for ${currentDay}...`;
                 
-                const selectedMeal = await animateSingleSpin(localPool);
+                const selectedMeal = await animateSingleSpin(availablePool);
                 
                 schedule[currentDay] = selectedMeal;
                 localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
                 renderWeek();
 
-                // Rule 4 validation checks context filtering loops
-                localPool = localPool.filter(m => m !== selectedMeal);
+                availablePool = availablePool.filter(m => m !== selectedMeal);
                 await new Promise(resolve => setTimeout(resolve, 800));
             }
 
@@ -582,22 +707,30 @@
             setTimeout(() => {
                 document.getElementById('wheelModal').style.display = 'none';
                 isSpinning = false;
+                renderMealList();
                 renderWeek();
             }, 1500);
         }
 
-        // REVISION 4: Rerolls day individually filtering out choices currently appearing anywhere else on the calendar layouts
         async function rerollSingleDay(day) {
-            // Collect list of all current dishes claimed across active week profile positions
             const activeWeekMeals = Object.keys(schedule)
                 .filter(k => k !== day)
                 .map(k => schedule[k]);
 
-            // Filter out items already allocated this week
-            const exclusiveAvailablePool = meals.filter(m => !activeWeekMeals.includes(m));
+            let exclusiveAvailablePool = meals.filter(m => !activeWeekMeals.includes(m));
+
+            // Apply repeat filter if toggle is ON
+            if (preventRepeats) {
+                exclusiveAvailablePool = exclusiveAvailablePool.filter(m => !previousWeekMeals.includes(m));
+            }
+
+            // Safety fallback if pool is empty
+            if (exclusiveAvailablePool.length < 1) {
+                exclusiveAvailablePool = meals.filter(m => !activeWeekMeals.includes(m));
+            }
 
             if (exclusiveAvailablePool.length < 1) {
-                alert("No unique meals remaining in your manager master pool to swap with! Add more meals first.");
+                alert("No unique meals remaining to swap with! Add more meals first.");
                 return;
             }
             
@@ -607,7 +740,6 @@
             
             document.getElementById('modalStatus').innerText = `Re-rolling ${day}...`;
             
-            // Spin using the clean filtered non-repeating sub pool
             const selectedMeal = await animateSingleSpin(exclusiveAvailablePool);
             
             schedule[day] = selectedMeal;
@@ -629,7 +761,6 @@
                 const spinDuration = 2400; 
                 const startTime = performance.now();
                 
-                // Uses full customized input data collection pool completely mapped directly
                 let wheelPool = [...currentPool];
                 const segments = wheelPool.length;
                 const arcSize = (2 * Math.PI) / segments;
