@@ -76,7 +76,7 @@
             font-size: 0.85rem;
             font-weight: 500;
         }
-        .eat-out-btn.blocked { background: #94a3b8; }
+        .eat-out-btn.blocked { background: #64748b; }
         
         .reroll-btn {
             background: #f59e0b;
@@ -130,11 +130,12 @@
             gap: 8px;
             margin-bottom: 15px;
         }
-        input[type="text"] {
+        input[type="text"], select {
             flex-grow: 1;
             padding: 8px 12px;
             border: 1px solid var(--border);
             border-radius: 6px;
+            font-size: 0.95rem;
         }
         .add-btn {
             background: #10b981;
@@ -201,7 +202,6 @@
             border-bottom: 1px solid #cbd5e1;
         }
 
-        /* Toggle switch CSS */
         .switch {
             position: relative;
             display: inline-block;
@@ -244,7 +244,7 @@
             font-size: 0.75rem;
         }
 
-        /* Pop-up Modal */
+        /* Modal Screens */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -321,6 +321,19 @@
             z-index: 1100;
             filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.2));
         }
+
+        .select-modal-box {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .modal-btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -379,6 +392,20 @@
         </div>
     </div>
 
+    <!-- Dropdown Edit Modal -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <h3 id="editModalTitle" style="margin-top:0; color:var(--primary);">Select Meal</h3>
+            <div class="select-modal-box">
+                <select id="mealDropdownSelect"></select>
+                <div class="modal-btn-row">
+                    <button class="main-btn" onclick="saveDropdownSelection()">Save Choice</button>
+                    <button class="main-btn" style="background:#64748b;" onclick="closeEditModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const defaultMeals = [
             "Sesame Chicken", "Carbonara", "Tacos", "Beef Short Ribs", "Breakfast", 
@@ -402,6 +429,7 @@
 
         let currentAngle = 0;
         let isSpinning = false;
+        let activeEditingDay = null;
         
         const colors = [
             "#f87171", "#fb923c", "#fbbf24", "#34d399", "#22d3ee", "#60a5fa", 
@@ -444,9 +472,11 @@
                 
                 let actionButtonsHtml = '';
                 if (!isBlocked) {
-                    actionButtonsHtml += `<button class="override-btn" ${isSpinning ? 'disabled' : ''} onclick="manualOverrideDay('${day}')">✏️ Edit</button> `;
+                    actionButtonsHtml += `<button class="override-btn" ${isSpinning ? 'disabled' : ''} onclick="openDropdownSelectModal('${day}')">✏️ Edit</button> `;
                     if (schedule[day]) {
                         actionButtonsHtml += `<button class="reroll-btn" ${isSpinning ? 'disabled' : ''} onclick="rerollSingleDay('${day}')">🎲 Reroll</button>`;
+                    } else {
+                        actionButtonsHtml += `<button class="reroll-btn" ${isSpinning ? 'disabled' : ''} onclick="rerollSingleDay('${day}')">🎲 Spin Day</button>`;
                     }
                 }
 
@@ -536,33 +566,39 @@
             }
         }
 
-        function manualOverrideDay(day) {
+        function openDropdownSelectModal(day) {
             if (isSpinning) return;
+            activeEditingDay = day;
             
-            let choiceText = `Type or select a direct choice index number for ${day}:\n\n`;
-            meals.forEach((m, idx) => {
-                choiceText += `${idx + 1}. ${m}\n`;
+            document.getElementById('editModalTitle').innerText = `Select Dinner for ${day}`;
+            const dropdown = document.getElementById('mealDropdownSelect');
+            dropdown.innerHTML = '';
+            
+            meals.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.innerText = m;
+                if (schedule[day] === m) opt.selected = true;
+                dropdown.appendChild(opt);
             });
-            
-            const response = prompt(choiceText);
-            if (response === null) return; 
 
-            const numericSelection = parseInt(response.trim(), 10);
-            if (!isNaN(numericSelection) && numericSelection >= 1 && numericSelection <= meals.length) {
-                schedule[day] = meals[numericSelection - 1];
-            } else {
-                const matchedExistingMeal = meals.find(m => m.toLowerCase() === response.trim().toLowerCase());
-                if (matchedExistingMeal) {
-                    schedule[day] = matchedExistingMeal;
-                } else if (response.trim() !== "") {
-                    schedule[day] = response.trim();
-                } else {
-                    return;
-                }
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+            activeEditingDay = null;
+        }
+
+        function saveDropdownSelection() {
+            if (!activeEditingDay) return;
+            const selectedMeal = document.getElementById('mealDropdownSelect').value;
+            if (selectedMeal) {
+                schedule[activeEditingDay] = selectedMeal;
+                localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
+                renderWeek();
             }
-            
-            localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
-            renderWeek();
+            closeEditModal();
         }
 
         function drawPopUpWheel(visiblePool) {
@@ -662,7 +698,7 @@
         async function spinTheWeek() {
             const openDays = days.filter(day => !blockedDays.includes(day));
 
-            // Save active week to history
+            // Archive current assigned meals before starting the new week spin
             const activeMealsToArchive = Object.values(schedule).filter(m => m && !m.includes("🚫"));
             if (activeMealsToArchive.length > 0) {
                 previousWeekMeals = activeMealsToArchive;
@@ -670,13 +706,11 @@
                 renderHistory();
             }
 
-            // Apply restriction filter only if toggle is ON
             let availablePool = [...meals];
             if (preventRepeats) {
                 availablePool = meals.filter(m => !previousWeekMeals.includes(m));
             }
 
-            // Fallback safety check if restricted pool is too small
             if (availablePool.length < openDays.length) {
                 availablePool = [...meals];
             }
@@ -719,12 +753,10 @@
 
             let exclusiveAvailablePool = meals.filter(m => !activeWeekMeals.includes(m));
 
-            // Apply repeat filter if toggle is ON
             if (preventRepeats) {
                 exclusiveAvailablePool = exclusiveAvailablePool.filter(m => !previousWeekMeals.includes(m));
             }
 
-            // Safety fallback if pool is empty
             if (exclusiveAvailablePool.length < 1) {
                 exclusiveAvailablePool = meals.filter(m => !activeWeekMeals.includes(m));
             }
@@ -738,7 +770,7 @@
             document.querySelectorAll('button').forEach(b => b.disabled = true);
             document.getElementById('wheelModal').style.display = 'flex';
             
-            document.getElementById('modalStatus').innerText = `Re-rolling ${day}...`;
+            document.getElementById('modalStatus').innerText = `Spinning ${day}...`;
             
             const selectedMeal = await animateSingleSpin(exclusiveAvailablePool);
             
