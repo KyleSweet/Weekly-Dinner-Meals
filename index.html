@@ -90,6 +90,18 @@
         }
         .reroll-btn:hover { background: #d97706; }
 
+        .override-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .override-btn:hover { background: #2563eb; }
+
         /* Controls */
         .actions {
             display: flex;
@@ -143,8 +155,25 @@
         .meal-item {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             padding: 8px;
             border-bottom: 1px solid var(--border);
+        }
+        .meal-text {
+            cursor: pointer;
+            flex-grow: 1;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .meal-text:hover {
+            background: #f1f5f9;
+            color: var(--primary);
+        }
+        .meal-text::after {
+            content: " ✏️";
+            font-size: 0.75rem;
+            opacity: 0.4;
         }
         .delete-meal {
             color: #ef4444;
@@ -178,7 +207,7 @@
             flex-direction: column;
             align-items: center;
             width: 95%;
-            max-width: 460px;
+            max-width: 520px;
             position: relative;
         }
 
@@ -207,8 +236,8 @@
 
         .wheel-container {
             position: relative;
-            width: 400px;
-            height: 400px;
+            width: 460px;
+            height: 460px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -252,6 +281,7 @@
         <!-- Meal List Manager -->
         <div class="card">
             <h3>Manage Meals (<span id="mealCount">0</span>)</h3>
+            <p style="font-size: 0.8rem; color:#64748b; margin-top:-10px;">Click any meal name to edit typos.</p>
             <div class="meal-input-group">
                 <input type="text" id="newMealInput" placeholder="Add a dinner choice...">
                 <button class="add-btn" onclick="addCustomMeal()">Add</button>
@@ -267,13 +297,12 @@
             <div id="modalLiveSelection">- - -</div>
             <div class="wheel-container">
                 <div class="wheel-pointer"></div>
-                <canvas id="wheelCanvas" width="400" height="400"></canvas>
+                <canvas id="wheelCanvas" width="460" height="460"></canvas>
             </div>
         </div>
     </div>
 
     <script>
-        // YOUR EXPLICIT DEFAULT DINNER OPTIONS
         const defaultMeals = [
             "Sesame Chicken", "Carbonara", "Tacos", "Beef Short Ribs", "Breakfast", 
             "Spaghetti & Meatballs", "Sausage & Peppers", "Hamburgers", "Chicken Caesar Salad", 
@@ -295,10 +324,14 @@
         let currentAngle = 0;
         let isSpinning = false;
         
-        const colors = ["#f87171", "#fb923c", "#fbbf24", "#34d399", "#22d3ee", "#60a5fa", "#818cf8", "#c084fc", "#f472b6", "#a7f3d0", "#fed7aa", "#c7d2fe"];
+        // Extended alternating colors layout palette to accommodate a massive slice count cleanly
+        const colors = [
+            "#f87171", "#fb923c", "#fbbf24", "#34d399", "#22d3ee", "#60a5fa", 
+            "#818cf8", "#c084fc", "#f472b6", "#a7f3d0", "#fed7aa", "#c7d2fe",
+            "#2dd4bf", "#fb7185", "#38bdf8", "#a3e635", "#f43f5e", "#0284c7"
+        ];
 
         function init() {
-            // Force reset to the brand new custom default list if they haven't modified it yet
             if(!localStorage.getItem('dinnerMeals')) {
                 localStorage.setItem('dinnerMeals', JSON.stringify(meals));
             }
@@ -313,23 +346,25 @@
 
             days.forEach(day => {
                 const isBlocked = blockedDays.includes(day);
-                const hasMeal = !!schedule[day];
                 let currentMeal = schedule[day] || "Waiting for spin...";
                 if (isBlocked) currentMeal = "🚫 Eating Out / Blocked";
 
                 const row = document.createElement('div');
                 row.className = 'day-row';
                 
-                // Only display the Re-roll option if a meal has actually been picked and the day isn't blocked
-                const rerollButtonHtml = (hasMeal && !isBlocked) 
-                    ? `<button class="reroll-btn" ${isSpinning ? 'disabled' : ''} onclick="rerollSingleDay('${day}')">🎲 Reroll</button>` 
-                    : '';
+                let actionButtonsHtml = '';
+                if (!isBlocked) {
+                    actionButtonsHtml += `<button class="override-btn" ${isSpinning ? 'disabled' : ''} onclick="manualOverrideDay('${day}')">✏️ Edit</button> `;
+                    if (schedule[day]) {
+                        actionButtonsHtml += `<button class="reroll-btn" ${isSpinning ? 'disabled' : ''} onclick="rerollSingleDay('${day}')">🎲 Reroll</button>`;
+                    }
+                }
 
                 row.innerHTML = `
                     <div class="day-name">${day}</div>
                     <div class="meal-assigned" style="${isBlocked ? 'color: #ef4444; font-style: italic;' : schedule[day] ? 'color: #1e293b; font-weight:600;' : 'color: #94a3b8;'}">${currentMeal}</div>
                     <div class="action-btns">
-                        ${rerollButtonHtml}
+                        ${actionButtonsHtml}
                         <button class="eat-out-btn ${isBlocked ? 'blocked' : ''}" ${isSpinning ? 'disabled' : ''} onclick="toggleBlockDay('${day}')">
                             ${isBlocked ? 'Unblock' : 'Eat Out'}
                         </button>
@@ -351,13 +386,72 @@
                 const item = document.createElement('div');
                 item.className = 'meal-item';
                 item.innerHTML = `
-                    <span>${meal}</span>
+                    <span class="meal-text" onclick="editMealText(${index})">${meal}</span>
                     <button class="delete-meal" ${isSpinning ? 'disabled' : ''} onclick="deleteMeal(${index})">✕</button>
                 `;
                 container.appendChild(item);
             });
         }
 
+        // REVISION 1: inline text prompt editor function
+        function editMealText(index) {
+            if(isSpinning) return;
+            const currentName = meals[index];
+            const updatedName = prompt(`Edit meal name details:`, currentName);
+            
+            if(updatedName !== null && updatedName.trim() !== "") {
+                const cleanValue = updatedName.trim();
+                // Update in our array pool
+                meals[index] = cleanValue;
+                localStorage.setItem('dinnerMeals', JSON.stringify(meals));
+                
+                // Update any matches sitting on active dashboard schedule too so text lines stay linked
+                for (let day in schedule) {
+                    if (schedule[day] === currentName) {
+                        schedule[day] = cleanValue;
+                    }
+                }
+                localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
+                
+                renderMealList();
+                renderWeek();
+            }
+        }
+
+        // REVISION 3: Manual day configuration selector bypass mechanism
+        function manualOverrideDay(day) {
+            if (isSpinning) return;
+            
+            // Build simple quick choice map list
+            let choiceText = `Type or select a direct choice index number for ${day}:\n\n`;
+            meals.forEach((m, idx) => {
+                choiceText += `${idx + 1}. ${m}\n`;
+            });
+            
+            const response = prompt(choiceText);
+            if (response === null) return; 
+
+            const numericSelection = parseInt(response.trim(), 10);
+            if (!isNaN(numericSelection) && numericSelection >= 1 && numericSelection <= meals.length) {
+                schedule[day] = meals[numericSelection - 1];
+            } else {
+                // Check if they typed a string direct match custom entry name value alternative
+                const matchedExistingMeal = meals.find(m => m.toLowerCase() === response.trim().toLowerCase());
+                if (matchedExistingMeal) {
+                    schedule[day] = matchedExistingMeal;
+                } else if (response.trim() !== "") {
+                    // Accept raw fallback overrides
+                    schedule[day] = response.trim();
+                } else {
+                    return;
+                }
+            }
+            
+            localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
+            renderWeek();
+        }
+
+        // REVISION 2: Shows full complete list details spread out clean over canvas circumference wheel layout wedges
         function drawPopUpWheel(visiblePool) {
             const canvas = document.getElementById('wheelCanvas');
             if (!canvas) return;
@@ -369,7 +463,7 @@
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            const segments = Math.min(12, visiblePool.length); 
+            const segments = visiblePool.length; 
             const arcSize = (2 * Math.PI) / segments;
 
             for (let i = 0; i < segments; i++) {
@@ -382,11 +476,12 @@
                 ctx.lineTo(centerX, centerY);
                 ctx.fill();
                 
-                ctx.strokeStyle = "#ffffff";
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = "rgba(255,255,255,0.4)";
+                ctx.lineWidth = 1;
                 ctx.stroke();
             }
 
+            // Text Pass layer calculations adjustments base configurations
             for (let i = 0; i < segments; i++) {
                 const angle = currentAngle + (i * arcSize);
                 
@@ -397,10 +492,18 @@
                 ctx.textAlign = "right";
                 ctx.textBaseline = "middle";
                 ctx.fillStyle = "#1e293b";
-                ctx.font = "bold 13px system-ui, -apple-system, sans-serif";
+                
+                // Adjust typography dynamics depending how narrow spacing sections shrink down to fit
+                if (segments > 30) {
+                    ctx.font = "bold 9px system-ui, -apple-system, sans-serif";
+                } else if (segments > 20) {
+                    ctx.font = "bold 11px system-ui, -apple-system, sans-serif";
+                } else {
+                    ctx.font = "bold 13px system-ui, -apple-system, sans-serif";
+                }
                 
                 let mealText = visiblePool[i] || "";
-                if(mealText.length > 18) mealText = mealText.substring(0, 15) + '...';
+                if(mealText.length > 20) mealText = mealText.substring(0, 17) + '...';
                 
                 ctx.fillText(mealText, radius - 15, 0);
                 ctx.restore();
@@ -445,7 +548,6 @@
             renderMealList();
         }
 
-        // FULL WEEK SPINNER SEQUENCE
         async function spinTheWeek() {
             const openDays = days.filter(day => !blockedDays.includes(day));
             if (meals.length < openDays.length) {
@@ -469,8 +571,9 @@
                 localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
                 renderWeek();
 
+                // Rule 4 validation checks context filtering loops
                 localPool = localPool.filter(m => m !== selectedMeal);
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 800));
             }
 
             document.getElementById('modalStatus').innerText = "🎉 Week Drafted!";
@@ -479,13 +582,24 @@
             setTimeout(() => {
                 document.getElementById('wheelModal').style.display = 'none';
                 isSpinning = false;
-                renderWeek(); // Re-enables custom row layout configurations correctly
+                renderWeek();
             }, 1500);
         }
 
-        // --- NEW INDIVIDUAL DAY RE-ROLL FUNCTION ---
+        // REVISION 4: Rerolls day individually filtering out choices currently appearing anywhere else on the calendar layouts
         async function rerollSingleDay(day) {
-            if (meals.length < 1) return;
+            // Collect list of all current dishes claimed across active week profile positions
+            const activeWeekMeals = Object.keys(schedule)
+                .filter(k => k !== day)
+                .map(k => schedule[k]);
+
+            // Filter out items already allocated this week
+            const exclusiveAvailablePool = meals.filter(m => !activeWeekMeals.includes(m));
+
+            if (exclusiveAvailablePool.length < 1) {
+                alert("No unique meals remaining in your manager master pool to swap with! Add more meals first.");
+                return;
+            }
             
             isSpinning = true;
             document.querySelectorAll('button').forEach(b => b.disabled = true);
@@ -493,8 +607,8 @@
             
             document.getElementById('modalStatus').innerText = `Re-rolling ${day}...`;
             
-            // Allow selecting any dinner choice from the list for the single swap
-            const selectedMeal = await animateSingleSpin([...meals]);
+            // Spin using the clean filtered non-repeating sub pool
+            const selectedMeal = await animateSingleSpin(exclusiveAvailablePool);
             
             schedule[day] = selectedMeal;
             localStorage.setItem('dinnerSchedule', JSON.stringify(schedule));
@@ -515,7 +629,8 @@
                 const spinDuration = 2400; 
                 const startTime = performance.now();
                 
-                let wheelPool = [...currentPool].sort(() => 0.5 - Math.random()).slice(0, 12);
+                // Uses full customized input data collection pool completely mapped directly
+                let wheelPool = [...currentPool];
                 const segments = wheelPool.length;
                 const arcSize = (2 * Math.PI) / segments;
 
@@ -564,12 +679,6 @@
             schedule = {};
             localStorage.removeItem('dinnerSchedule');
             renderWeek();
-        }
-
-        // Quick check to force use of the fresh list if the user's browser is holding onto old defaults
-        if (JSON.stringify(meals) !== JSON.stringify(defaultMeals) && localStorage.getItem('dinnerMeals') === null) {
-            meals = defaultMeals;
-            localStorage.setItem('dinnerMeals', JSON.stringify(meals));
         }
 
         window.onload = init;
