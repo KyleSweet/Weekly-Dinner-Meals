@@ -773,6 +773,7 @@
             setTimeout(() => {
                 document.getElementById('wheelModal').style.display = 'none';
                 isSpinning = false;
+                document.querySelectorAll('button').forEach(b => b.disabled = false);
                 renderMealList();
                 renderWeek();
             }, 1500);
@@ -816,6 +817,7 @@
             setTimeout(() => {
                 document.getElementById('wheelModal').style.display = 'none';
                 isSpinning = false;
+                document.querySelectorAll('button').forEach(b => b.disabled = false);
                 renderWeek();
             }, 1500);
         }
@@ -872,7 +874,9 @@
         function clearWeek() {
             if (isSpinning) return;
             schedule = {};
+            blockedDays = [];
             localStorage.removeItem('dinnerSchedule');
+            localStorage.removeItem('dinnerBlockedDays');
             renderWeek();
         }
 
