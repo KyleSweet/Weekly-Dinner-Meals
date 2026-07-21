@@ -49,6 +49,27 @@
             flex-direction: column;
         }
 
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .card-header h3 { margin: 0; }
+
+        .save-history-btn {
+            background: #0284c7;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .save-history-btn:hover { background: #0369a1; }
+
         /* Week Planner Styles */
         .day-row {
             display: flex;
@@ -348,7 +369,10 @@
     <div class="container">
         <!-- Main Weekly Planner -->
         <div class="card">
-            <h3>Your Week Layout</h3>
+            <div class="card-header">
+                <h3>Your Week Layout</h3>
+                <button class="save-history-btn" onclick="saveCurrentWeekToHistory()">💾 Save Week to History</button>
+            </div>
             <div id="weekPlanner"></div>
         </div>
 
@@ -365,7 +389,7 @@
             <!-- Resting / History Box -->
             <div class="history-box">
                 <div class="toggle-row">
-                    <strong>Prevent repeats from last week?</strong>
+                    <strong>Prevent repeats from history?</strong>
                     <label class="switch">
                         <input type="checkbox" id="preventRepeatsToggle" onchange="togglePreventRepeats()">
                         <span class="slider"></span>
@@ -455,6 +479,22 @@
             preventRepeats = toggleEl.checked;
             localStorage.setItem('dinnerPreventRepeats', JSON.stringify(preventRepeats));
             renderMealList();
+        }
+
+        function saveCurrentWeekToHistory() {
+            if (isSpinning) return;
+            const activeMeals = Object.values(schedule).filter(m => m && !m.includes("🚫") && m !== "Waiting for spin...");
+            
+            if (activeMeals.length === 0) {
+                alert("No scheduled meals found to save!");
+                return;
+            }
+
+            previousWeekMeals = activeMeals;
+            localStorage.setItem('dinnerPreviousWeek', JSON.stringify(previousWeekMeals));
+            renderMealList();
+            renderHistory();
+            alert("Current week's meals saved to resting history!");
         }
 
         function renderWeek() {
@@ -697,14 +737,6 @@
 
         async function spinTheWeek() {
             const openDays = days.filter(day => !blockedDays.includes(day));
-
-            // Archive current assigned meals before starting the new week spin
-            const activeMealsToArchive = Object.values(schedule).filter(m => m && !m.includes("🚫"));
-            if (activeMealsToArchive.length > 0) {
-                previousWeekMeals = activeMealsToArchive;
-                localStorage.setItem('dinnerPreviousWeek', JSON.stringify(previousWeekMeals));
-                renderHistory();
-            }
 
             let availablePool = [...meals];
             if (preventRepeats) {
